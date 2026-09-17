@@ -245,6 +245,25 @@
         <div class="num-unit"><input type="text" id="d-tf" value="500" inputmode="numeric"><span class="u">g</span></div>
       </div>
 
+      <fieldset>
+        <div class="split" style="margin-bottom:12px">
+          <div class="field">
+            <div class="top"><label for="d-f1-name">Flour 1</label><span class="hint">the base</span></div>
+            <input type="text" id="d-f1-name" value="Flour 1" aria-label="First flour name">
+          </div>
+          <div class="field">
+            <div class="top"><label for="d-f2-name">Flour 2</label><span class="hint">e.g. rye</span></div>
+            <input type="text" id="d-f2-name" value="Flour 2" aria-label="Second flour name">
+          </div>
+        </div>
+        <div class="field slider-field">
+          <div class="toprow"><label for="d-r2"><span class="f2name">Flour 2</span> share</label>
+            <div class="num-unit valbox"><input type="text" id="d-r2" value="0" inputmode="decimal"><span class="u">%</span></div>
+          </div>
+          <input type="range" id="d-r2-r" value="0" min="0" max="100" step="5" aria-label="Second flour share of total flour">
+        </div>
+      </fieldset>
+
       <div class="field slider-field">
         <div class="toprow"><label for="d-h">Hydration</label>
           <div class="num-unit valbox"><input type="text" id="d-h" value="75" inputmode="decimal"><span class="u">%</span></div>
@@ -252,12 +271,34 @@
         <input type="range" id="d-h-r" value="75" min="50" max="110" step="5" aria-label="Hydration">
       </div>
 
-      <div class="field slider-field">
-        <div class="toprow"><label for="d-s">Starter</label>
-          <div class="num-unit valbox"><input type="text" id="d-s" value="20" inputmode="decimal"><span class="u">%</span></div>
+      <fieldset>
+        <div class="field" style="margin-bottom:8px"><label>Starter amount</label></div>
+        <div class="seg" role="tablist" aria-label="How to size the starter">
+          <button type="button" class="seg-btn is-on" id="d-tab-weight" role="tab" aria-selected="true">By weight</button>
+          <button type="button" class="seg-btn" id="d-tab-pff" role="tab" aria-selected="false">Pre-fermented flour</button>
         </div>
-        <input type="range" id="d-s-r" value="20" min="0" max="50" step="5" aria-label="Starter percentage">
-      </div>
+
+        <div id="d-group-weight" class="field slider-field" style="margin-top:12px">
+          <div class="toprow"><label for="d-s">Starter</label>
+            <div class="num-unit valbox"><input type="text" id="d-s" value="20" inputmode="decimal"><span class="u">%</span></div>
+          </div>
+          <input type="range" id="d-s-r" value="20" min="0" max="80" step="5" aria-label="Starter percentage by weight">
+        </div>
+
+        <div id="d-group-pff" class="field slider-field" style="margin-top:12px;display:none">
+          <div class="toprow"><label for="d-pff">Pre-fermented flour <span class="hint">Versäuerung</span></label>
+            <div class="num-unit valbox"><input type="text" id="d-pff" value="10" inputmode="decimal"><span class="u">%</span></div>
+          </div>
+          <input type="range" id="d-pff-r" value="10" min="0" max="40" step="5" aria-label="Pre-fermented flour percentage">
+        </div>
+
+        <div class="field slider-field" style="margin-top:12px">
+          <div class="toprow"><label for="d-starter-f2">Starter is <span class="f2name">Flour 2</span></label>
+            <div class="num-unit valbox"><input type="text" id="d-starter-f2" value="0" inputmode="decimal"><span class="u">%</span></div>
+          </div>
+          <input type="range" id="d-starter-f2-r" value="0" min="0" max="100" step="5" aria-label="Share of the starter's flour that is flour 2">
+        </div>
+      </fieldset>
 
       <div class="split">
         <div class="field">
@@ -272,10 +313,16 @@
     </div>
 
     <div class="display" id="dough-out" aria-live="polite">
+      <p class="lev-target" id="d-final" hidden>Final flour: <b>100%</b> <span class="f1name">Flour 1</span>, <b>0%</b> <span class="f2name">Flour 2</span>.</p>
       <div class="row">
-        <span class="swatch sw-flour"></span>
-        <span class="label">Flour to add<small id="d-flour-note"></small></span>
-        <span class="val"><span class="n" id="d-flour">450</span><span class="unit">g</span></span>
+        <span class="swatch sw-wheat"></span>
+        <span class="label"><span class="f1name">Flour 1</span> to add<small id="d-f1-note"></small></span>
+        <span class="val"><span class="n" id="d-f1">450</span><span class="unit">g</span></span>
+      </div>
+      <div class="row">
+        <span class="swatch sw-rye"></span>
+        <span class="label"><span class="f2name">Flour 2</span> to add<small id="d-f2-note"></small></span>
+        <span class="val"><span class="n" id="d-f2">0</span><span class="unit">g</span></span>
       </div>
       <div class="row">
         <span class="swatch sw-water"></span>
@@ -284,7 +331,7 @@
       </div>
       <div class="row">
         <span class="swatch sw-starter"></span>
-        <span class="label">Starter<small id="d-starter-note">contains 50g flour + 50g water</small></span>
+        <span class="label">Starter<small id="d-starter-note">contains 50g flour + 50g water · 10% pre-fermented flour</small></span>
         <span class="val"><span class="n" id="d-starter">100</span><span class="unit">g</span></span>
       </div>
       <div class="row">
@@ -471,41 +518,134 @@
     if (r) r.addEventListener('input', function () { n.value = r.value; cb(); });
   }
 
-  /* ---------------- DOUGH ---------------- */
+  /* ---------------- DOUGH ----------------
+     Total flour splits into two named flours. The starter carries its own flour,
+     which may itself be part flour 2 (a rye starter, say); its flour and water are
+     folded into the totals, so what you ADD is the target blend minus what the
+     starter already brings. The starter can be sized two equivalent ways:
+       - by weight:              S  = starter weight as % of total flour
+       - by pre-fermented flour: V  = soured flour as % of total flour (Versäuerung)
+     with  S = V × (1 + starterHydration/100). */
+  var doughMode = 'weight';
+
+  function flourNames() {
+    var n1 = String($('d-f1-name').value || '').trim() || 'Flour 1';
+    var n2 = String($('d-f2-name').value || '').trim() || 'Flour 2';
+    return [n1, n2];
+  }
+
+  function starterPct(SH) {
+    if (doughMode === 'pff') return clampNum($('d-pff').value, 0, 100) * (1 + SH / 100);
+    return clampNum($('d-s').value, 0, 1000);
+  }
+
+  function setDoughMode(m) {
+    var SH = clampNum($('d-sh').value, 0, 1000);
+    // carry the current value across so the dough doesn't jump on toggle
+    if (m === 'pff' && doughMode === 'weight') {
+      var v = g1(clampNum($('d-s').value, 0, 1000) / (1 + SH / 100));
+      $('d-pff').value = v; $('d-pff-r').value = v;
+    } else if (m === 'weight' && doughMode === 'pff') {
+      var w = g1(clampNum($('d-pff').value, 0, 100) * (1 + SH / 100));
+      $('d-s').value = w; $('d-s-r').value = w;
+    }
+    doughMode = m;
+    $('d-tab-weight').classList.toggle('is-on', m === 'weight');
+    $('d-tab-pff').classList.toggle('is-on', m === 'pff');
+    $('d-tab-weight').setAttribute('aria-selected', m === 'weight');
+    $('d-tab-pff').setAttribute('aria-selected', m === 'pff');
+    $('d-group-weight').style.display = m === 'weight' ? '' : 'none';
+    $('d-group-pff').style.display = m === 'pff' ? '' : 'none';
+    dough();
+  }
+
   function dough() {
+    var names = flourNames();
+    Array.prototype.forEach.call(document.querySelectorAll('.f1name'), function (n) { n.textContent = names[0]; });
+    Array.prototype.forEach.call(document.querySelectorAll('.f2name'), function (n) { n.textContent = names[1]; });
+
     var TF = clampNum($('d-tf').value, 0, 100000);
     var H  = clampNum($('d-h').value, 0, 500);
-    var S  = clampNum($('d-s').value, 0, 1000);
     var SH = clampNum($('d-sh').value, 0, 1000);
     var salt = clampNum($('d-salt-in').value, 0, 100);
+    var R2 = clampNum($('d-r2').value, 0, 100);
+    var starterF2 = clampNum($('d-starter-f2').value, 0, 100);   // % of the starter's flour that is flour 2
+
+    // effective starter weight %; keep the hidden twin (d-s) in sync so the
+    // levain tool, which reads d-s, stays correct in either mode
+    var S = starterPct(SH);
+    if (doughMode === 'pff') { $('d-s').value = g1(S); $('d-s-r').value = g1(S); }
+
+    var flour2Total = TF * R2 / 100;         // target flour 2 across the whole recipe
+    var flour1Total = TF - flour2Total;
 
     var starterW = TF * S / 100;
-    var starterFlour = starterW / (1 + SH / 100);
-    var starterWater = starterW - starterFlour;
+    var sf = starterW / (1 + SH / 100);      // pre-fermented flour
+    var sw = starterW - sf;
+    var sfF2 = sf * starterF2 / 100;         // flour 2 already carried by the starter
+    var sfF1 = sf - sfF2;
+
+    // add the target blend minus what the starter already brings
+    var flour2ToAdd = flour2Total - sfF2;
+    var flour1ToAdd = flour1Total - sfF1;
+    // can't add negative flour: if the starter over-delivers one flour, add none of
+    // it and let the other make up the rest, keeping total flour at TF
+    if (flour2ToAdd < 0) { flour2ToAdd = 0; flour1ToAdd = (TF - sf) - flour2ToAdd; }
+    else if (flour1ToAdd < 0) { flour1ToAdd = 0; flour2ToAdd = (TF - sf) - flour1ToAdd; }
+
+    var f2Present = sfF2 + flour2ToAdd;      // flour 2 in the finished dough
+    var finalF2 = TF > 0 ? f2Present / TF * 100 : 0;
+    var finalF1 = 100 - finalF2;
+
     var totalWater = TF * H / 100;
-    var addFlour = TF - starterFlour;
-    var addWater = totalWater - starterWater;
+    var addWater = totalWater - sw;
     var saltW = TF * salt / 100;
     var total = TF + totalWater + saltW;
 
-    $('d-flour').textContent = g(Math.max(addFlour, 0));
+    $('d-f1').textContent = g(Math.max(flour1ToAdd, 0));
+    $('d-f2').textContent = g(Math.max(flour2ToAdd, 0));
     $('d-water').textContent = g(Math.max(addWater, 0));
     $('d-starter').textContent = g(starterW);
     $('d-salt').textContent = g1(saltW);
     $('d-total').textContent = g(total);
 
-    $('d-starter-note').textContent = 'contains ' + g(starterFlour) + 'g flour + ' + g(starterWater) + 'g water';
-    $('d-flour-note').innerHTML = (addFlour < -0.5)
-      ? '<span class="warn">starter alone exceeds total flour</span>' : '';
+    var n1 = escapeHtml(names[0]), n2 = escapeHtml(names[1]);
+    var pff = TF > 0 ? sf / TF * 100 : 0;
+
+    // only meaningful when there actually are two flours; hide the trivial
+    // "100% flour 1, 0% flour 2" line
+    var souredF2 = f2Present > 0.5 ? sfF2 / f2Present * 100 : 0;   // rye-basis Versäuerung
+    $('d-final').hidden = f2Present < 0.5;
+    $('d-final').innerHTML = 'Final flour: <b>' + p1(finalF1) + '%</b> ' + n1
+      + ', <b>' + p1(finalF2) + '%</b> ' + n2 + '.'
+      + (sfF2 > 0.5 ? ' Sour covers <b>' + p1(souredF2) + '%</b> of the ' + n2 + '.' : '');
+
+    $('d-starter-note').innerHTML = 'contains ' + g(sf) + 'g flour'
+      + (starterF2 > 0.5 ? ' (' + p1(starterF2) + '% ' + n2 + ')' : '')
+      + ' + ' + g(sw) + 'g water · ' + p1(pff) + '% pre-fermented flour';
+
+    // the starter alone can bring more of a flour than the target blend allows, so the
+    // final bread can't hit the share you set: flag it as a warning
+    var exceeds = sf > TF + 0.5;
+    $('d-f1-note').innerHTML = exceeds
+      ? '<span class="warn">starter alone exceeds total flour</span>'
+      : (sfF1 > flour1Total + 0.5 ? '<span class="warn">starter alone brings ' + p1(sfF1 / TF * 100) + '% ' + n1 + ', so ' + n2 + ' stays below ' + p1(R2) + '%</span>' : '');
+    $('d-f2-note').innerHTML = (!exceeds && sfF2 > flour2Total + 0.5)
+      ? '<span class="warn">starter alone brings ' + p1(sfF2 / TF * 100) + '% ' + n2 + ', above the ' + p1(R2) + '% set</span>' : '';
     $('d-water-note').innerHTML = (addWater < -0.5)
       ? '<span class="warn">starter water exceeds target, lower hydration or starter</span>' : '';
 
     levain();
   }
 
-  ['d-tf','d-sh','d-salt-in'].forEach(function (id) { $(id).addEventListener('input', dough); });
+  ['d-tf','d-sh','d-salt-in','d-f1-name','d-f2-name'].forEach(function (id) { $(id).addEventListener('input', dough); });
   link('d-h', 'd-h-r', dough);
   link('d-s', 'd-s-r', dough);
+  link('d-pff', 'd-pff-r', dough);
+  link('d-r2', 'd-r2-r', dough);
+  link('d-starter-f2', 'd-starter-f2-r', dough);
+  $('d-tab-weight').addEventListener('click', function () { setDoughMode('weight'); });
+  $('d-tab-pff').addEventListener('click', function () { setDoughMode('pff'); });
 
   /* ---------------- LEVAIN (reads the dough tool) ---------------- */
   var levMode = 'ratio';
