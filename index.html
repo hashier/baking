@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baker's math</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page:    #E9E7DF;
+    --surface: #F8F7F2;
+    --ink:     #23201B;
+    --ink-soft:#6B655B;
+    --line:    #D8D4C8;
+    --line-2:  #E7E4DB;
+
+    --flour:   #C4A870;
+    --water:   #3F7079;
+    --starter: #B0731F;
+    --salt:    #8C9196;
+    --rye:     #91492C;
+    --wheat:   #C79A43;
+
+    --accent:  #B0731F;
+    --warn:    #A63A2A;
+
+    --r: 14px;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --page:    #14120E;
+      --surface: #201D18;
+      --ink:     #EDE8DD;
+      --ink-soft:#A29A8B;
+      --line:    #34302A;
+      --line-2:  #2A2721;
+      --flour:   #D8BE85;
+      --water:   #6FA9B3;
+      --starter: #E2A64B;
+      --salt:    #9AA0A6;
+      --rye:     #C56B49;
+      --wheat:   #DDB061;
+      --accent:  #E2A64B;
+      --warn:    #E4816F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --page:    #14120E;
+    --surface: #201D18;
+    --ink:     #EDE8DD;
+    --ink-soft:#A29A8B;
+    --line:    #34302A;
+    --line-2:  #2A2721;
+    --flour:   #D8BE85;
+    --water:   #6FA9B3;
+    --starter: #E2A64B;
+    --salt:    #9AA0A6;
+    --rye:     #C56B49;
+    --wheat:   #DDB061;
+    --accent:  #E2A64B;
+    --warn:    #E4816F;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.5;
+    font-size: 16px;
+    padding: clamp(16px, 4vw, 40px) clamp(14px, 4vw, 24px) 64px;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; }
+
+  header { margin: 8px 2px 28px; }
+  h1 {
+    font-size: clamp(1.9rem, 7vw, 2.6rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+    line-height: 1.02;
+  }
+  header p { margin: 8px 0 0; color: var(--ink-soft); font-size: 0.95rem; max-width: 46ch; }
+
+  .tool {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: clamp(16px, 4vw, 24px);
+    margin-bottom: 22px;
+  }
+  .tool > h2 {
+    font-size: 1.02rem;
+    font-weight: 600;
+    margin: 0 0 2px;
+    letter-spacing: -0.01em;
+  }
+  .tool > .sub { margin: 0 0 2px; color: var(--ink-soft); font-size: 0.86rem; }
+
+  /* readout above controls: display/result on top, inputs below the thumb */
+  .tool { display: flex; flex-direction: column; }
+  .tool > h2          { order: 1; }
+  .tool > .sub        { order: 2; }
+  .tool > .display    { order: 3; margin-top: 20px; }
+  .tool > .feed-chart { order: 3; margin-top: 20px; }
+  .tool > .controls   { order: 4; margin-top: 22px; }
+
+  /* ---- controls ---- */
+  .controls { display: grid; gap: 16px; }
+  .field { display: grid; gap: 7px; }
+  .field .top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .field label { font-size: 0.9rem; font-weight: 500; }
+  .field .hint { color: var(--ink-soft); font-size: 0.76rem; font-weight: 400; }
+
+  input[type="text"] {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    width: 100%;
+    background: var(--page);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 9px;
+    padding: 9px 11px;
+    font-size: 0.98rem;
+    -moz-appearance: textfield;
+  }
+  .num-unit { position: relative; }
+  .num-unit input { padding-right: 34px; }
+  .num-unit .u { position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+    color: var(--ink-soft); font-family: var(--mono); font-size: 0.85rem; pointer-events: none; }
+
+  input[type="range"] { width: 100%; accent-color: var(--accent); height: 22px; margin: 6px 0 0; }
+  input[type="text"]:focus-visible,
+  input[type="range"]:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .slider-field .toprow { display: flex; justify-content: space-between; align-items: baseline; }
+  .slider-field .valbox { width: 88px; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: end; }
+  .split3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  fieldset { border: 0; margin: 0; padding: 0; }
+
+  /* feed ratio with a link between flour and water */
+  .ratio-row { display: grid; grid-template-columns: 1fr 1fr auto 1fr; gap: 8px; align-items: center; }
+  .lockbtn { position: relative; appearance: none; -webkit-appearance: none; width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line); background: var(--page); color: var(--ink-soft); border-radius: 8px; cursor: pointer; }
+  .lockbtn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .lockbtn.is-locked { color: var(--accent); border-color: var(--accent); }
+  .lockbtn::after { content: ""; position: absolute; left: 7px; right: 7px; top: 50%; height: 2px; background: currentColor; transform: translateY(-50%) rotate(-45deg); border-radius: 2px; opacity: 0; }
+  .lockbtn:not(.is-locked)::after { opacity: 1; }
+  .lockbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--page); border: 1px solid var(--line); border-radius: 10px; }
+  .seg-btn { appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: var(--ink-soft); font: inherit; font-size: 0.86rem; padding: 8px 10px; border-radius: 7px; cursor: pointer; text-align: center; }
+  .seg-btn.is-on { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,.10); }
+  .seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---- dough / levain display (the instrument readout) ---- */
+  .display {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 4px 14px;
+    margin-top: 22px;
+    background: var(--page);
+  }
+  .row {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .row:last-child { border-bottom: 0; }
+  .row .swatch {
+    width: 11px; height: 11px; border-radius: 3px; flex: none;
+    align-self: center; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
+  }
+  .row .label { flex: 1; font-size: 0.92rem; }
+  .row .label small { display: block; color: var(--ink-soft); font-size: 0.74rem; margin-top: 1px; }
+  .row .val {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-weight: 500; font-size: 1.06rem; white-space: nowrap;
+  }
+  .row .val .unit { color: var(--ink-soft); font-weight: 400; font-size: 0.82rem; margin-left: 2px; }
+  .row.total { border-top: 2px solid var(--line); border-bottom: 0; margin-top: 2px; }
+  .row.total .label { font-weight: 600; }
+  .row.total .val { font-size: 1.2rem; font-weight: 600; }
+  .row.total .val .unit { font-size: 0.9rem; }
+  .display .lev-target { padding: 8px 0 11px; margin: 0; border-bottom: 1px solid var(--line-2); font-size: 0.86rem; color: var(--ink-soft); }
+  .display .lev-target b { font-family: var(--mono); color: var(--ink); font-weight: 600; }
+  .sw-flour   { background: var(--flour); }
+  .sw-water   { background: var(--water); }
+  .sw-starter { background: var(--starter); }
+  .sw-salt    { background: var(--salt); }
+  .sw-rye     { background: var(--rye); }
+  .sw-wheat   { background: var(--wheat); }
+  .warn { color: var(--warn); font-weight: 500; }
+
+  /* ---- feeding chart: one stacked bar per feed ---- */
+  .feed-chart { margin-top: 22px; }
+  .feed-summary { margin: 0 0 14px; font-size: 0.86rem; color: var(--ink-soft); }
+  .feed-summary b { font-family: var(--mono); color: var(--ink); font-weight: 600; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
+  .legend .leg { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; color: var(--ink-soft); }
+  .legend .swatch { width: 10px; height: 10px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+  .feed-row { padding: 12px 0; border-bottom: 1px solid var(--line-2); }
+  .feed-row:last-child { border-bottom: 0; }
+  .feed-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+  .feed-label { font-family: var(--mono); font-weight: 500; font-size: 0.9rem; }
+  .feed-nums { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.82rem; color: var(--ink-soft); text-align: right; }
+  .feed-hyd { margin-top: 6px; font-size: 0.74rem; color: var(--ink-soft); font-family: var(--mono); }
+
+  .bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,.10); }
+  .bar span { display: block; height: 100%; }
+  .bar .s-rye { background: var(--rye); }
+  .bar .s-wheat { background: var(--wheat); }
+  .bar .s-water { background: var(--water); }
+
+  footer { color: var(--ink-soft); font-size: 0.78rem; margin: 30px 2px 0; line-height: 1.6; }
+
+  @media (max-width: 380px) { .split3 { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: no-preference) {
+    .row .val { transition: color .12s ease; }
+    .bar span { transition: width .15s ease; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Baker's math</h1>
+    <p>Three tools for sourdough: size a dough at a given hydration, build the exact levain it needs, and track what your starter is made of as you feed it.</p>
+  </header>
+
+  <!-- ===================== DOUGH ===================== -->
+  <section class="tool" aria-labelledby="dough-h">
+    <h2 id="dough-h">Dough</h2>
+
+    <div class="controls">
+      <div class="field">
+        <div class="top"><label for="d-tf">Total flour</label><span class="hint">whole recipe</span></div>
+        <div class="num-unit"><input type="text" id="d-tf" value="500" inputmode="numeric"><span class="u">g</span></div>
+      </div>
+
+      <div class="field slider-field">
+        <div class="toprow"><label for="d-h">Hydration</label>
+          <div class="num-unit valbox"><input type="text" id="d-h" value="75" inputmode="decimal"><span class="u">%</span></div>
+        </div>
+        <input type="range" id="d-h-r" value="75" min="50" max="110" step="5" aria-label="Hydration">
+      </div>
+
+      <div class="field slider-field">
+        <div class="toprow"><label for="d-s">Starter</label>
+          <div class="num-unit valbox"><input type="text" id="d-s" value="20" inputmode="decimal"><span class="u">%</span></div>
+        </div>
+        <input type="range" id="d-s-r" value="20" min="0" max="50" step="5" aria-label="Starter percentage">
+      </div>
+
+      <div class="split">
+        <div class="field">
+          <div class="top"><label for="d-sh">Starter hydration</label></div>
+          <div class="num-unit"><input type="text" id="d-sh" value="100" inputmode="decimal"><span class="u">%</span></div>
+        </div>
+        <div class="field">
+          <div class="top"><label for="d-salt-in">Salt</label></div>
+          <div class="num-unit"><input type="text" id="d-salt-in" value="2" inputmode="decimal"><span class="u">%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="display" id="dough-out" aria-live="polite">
+      <div class="row">
+        <span class="swatch sw-flour"></span>
+        <span class="label">Flour to add<small id="d-flour-note"></small></span>
+        <span class="val"><span class="n" id="d-flour">450</span><span class="unit">g</span></span>
+      </div>
+      <div class="row">
+        <span class="swatch sw-water"></span>
+        <span class="label">Water to add<small id="d-water-note"></small></span>
+        <span class="val"><span class="n" id="d-water">325</span><span class="unit">g</span></span>
+      </div>
+      <div class="row">
+        <span class="swatch sw-starter"></span>
+        <span class="label">Starter<small id="d-starter-note">contains 50g flour + 50g water</small></span>
+        <span class="val"><span class="n" id="d-starter">100</span><span class="unit">g</span></span>
+      </div>
+      <div class="row">
+        <span class="swatch sw-salt"></span>
+        <span class="label">Salt</span>
+        <span class="val"><span class="n" id="d-salt">10.0</span><span class="unit">g</span></span>
+      </div>
+      <div class="row total">
+        <span class="label">Total dough</span>
+        <span class="val"><span class="n" id="d-total">885</span><span class="unit">g</span></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== LEVAIN ===================== -->
+  <section class="tool" aria-labelledby="lev-h">
+    <h2 id="lev-h">Levain</h2>
+    <p class="sub">Builds the exact starter your dough needs, from a spoonful of the one you keep.</p>
+
+    <div class="display" id="lev-out" aria-live="polite">
+      <p class="lev-target" id="lev-target">Build <b>100 g</b> at <b>100%</b> for your dough.</p>
+      <div class="row">
+        <span class="swatch sw-starter"></span>
+        <span class="label">Seed, your starter<small id="lev-seed-note">contains 10g flour + 10g water</small></span>
+        <span class="val"><span class="n" id="lev-seed">20</span><span class="unit">g</span></span>
+      </div>
+      <div class="row">
+        <span class="swatch sw-flour"></span>
+        <span class="label">Flour to add<small id="lev-flour-note"></small></span>
+        <span class="val"><span class="n" id="lev-flour">40</span><span class="unit">g</span></span>
+      </div>
+      <div class="row">
+        <span class="swatch sw-water"></span>
+        <span class="label">Water to add<small id="lev-water-note"></small></span>
+        <span class="val"><span class="n" id="lev-water">40</span><span class="unit">g</span></span>
+      </div>
+      <div class="row total">
+        <span class="label">Total levain</span>
+        <span class="val"><span class="n" id="lev-total">100</span><span class="unit">g</span></span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="seg" role="tablist" aria-label="How to build the levain">
+        <button type="button" class="seg-btn is-on" id="lev-tab-ratio" role="tab" aria-selected="true">Feed ratio</button>
+        <button type="button" class="seg-btn" id="lev-tab-seed" role="tab" aria-selected="false">Seed amount</button>
+      </div>
+
+      <div id="lev-group-ratio">
+        <div class="field" style="margin-bottom:12px"><label>Feed ratio <span class="hint">seed : flour : water</span></label></div>
+        <div class="ratio-row">
+          <div class="num-unit"><input type="text" id="lev-rs" value="1" inputmode="decimal" aria-label="Parts seed"><span class="u">sd</span></div>
+          <div class="num-unit"><input type="text" id="lev-rf" value="3" inputmode="decimal" aria-label="Parts flour"><span class="u">fl</span></div>
+          <button type="button" class="lockbtn is-locked" id="lev-lock" aria-pressed="true" aria-label="Lock flour and water together" title="Flour and water locked together">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </button>
+          <div class="num-unit"><input type="text" id="lev-rw" value="3" inputmode="decimal" aria-label="Parts water"><span class="u">wt</span></div>
+        </div>
+      </div>
+
+      <div id="lev-group-seed" class="field" style="display:none">
+        <div class="top"><label for="lev-seed-in">Seed to use</label><span class="hint">existing starter</span></div>
+        <div class="num-unit"><input type="text" id="lev-seed-in" value="20" inputmode="decimal"><span class="u">g</span></div>
+      </div>
+
+      <div class="split">
+        <div class="field">
+          <div class="top"><label for="lev-seed-h">Seed hydration</label></div>
+          <div class="num-unit"><input type="text" id="lev-seed-h" value="100" inputmode="decimal"><span class="u">%</span></div>
+        </div>
+        <div class="field">
+          <div class="top"><label for="lev-extra">Build extra</label></div>
+          <div class="num-unit"><input type="text" id="lev-extra" value="0" inputmode="decimal"><span class="u">g</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FEED ===================== -->
+  <section class="tool" aria-labelledby="feed-h">
+    <h2 id="feed-h">Feeding a starter</h2>
+    <p class="sub">Keep 1 part of your current starter, add flour and water. See how its flour blend shifts feed by feed. Defaults track a rye starter fed 1:3:3 with wheat.</p>
+
+    <div class="controls">
+      <fieldset>
+        <div class="split">
+          <div class="field">
+            <div class="top"><label for="f-grain-a">Starter grain</label><span class="hint">what it is now</span></div>
+            <input type="text" id="f-grain-a" value="Rye" aria-label="Starter grain name">
+          </div>
+          <div class="field">
+            <div class="top"><label for="f-grain-b">Feeding grain</label><span class="hint">what you add</span></div>
+            <input type="text" id="f-grain-b" value="Wheat" aria-label="Feeding grain name">
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <div class="split">
+          <div class="field">
+            <div class="top"><label for="f-rye0">Current <span class="gname-a">rye</span> in starter</label></div>
+            <div class="num-unit"><input type="text" id="f-rye0" value="100" inputmode="decimal"><span class="u">%</span></div>
+          </div>
+          <div class="field">
+            <div class="top"><label for="f-sh">Current hydration</label></div>
+            <div class="num-unit"><input type="text" id="f-sh" value="100" inputmode="decimal"><span class="u">%</span></div>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <div class="field" style="margin-bottom:12px">
+          <label>Feed ratio <span class="hint">starter : flour : water</span></label>
+        </div>
+        <div class="ratio-row">
+          <div class="num-unit"><input type="text" id="f-rs" value="1" inputmode="decimal" aria-label="Parts starter"><span class="u">st</span></div>
+          <div class="num-unit"><input type="text" id="f-rf" value="3" inputmode="decimal" aria-label="Parts flour"><span class="u">fl</span></div>
+          <button type="button" class="lockbtn is-locked" id="f-lock" aria-pressed="true" aria-label="Lock flour and water together" title="Flour and water locked together">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </button>
+          <div class="num-unit"><input type="text" id="f-rw" value="3" inputmode="decimal" aria-label="Parts water"><span class="u">wt</span></div>
+        </div>
+      </fieldset>
+
+      <div class="split">
+        <div class="field">
+          <div class="top"><label for="f-fedrye">Fed flour is</label></div>
+          <div class="num-unit"><input type="text" id="f-fedrye" value="0" inputmode="decimal"><span class="u">% <span class="gname-a">rye</span></span></div>
+        </div>
+        <div class="field">
+          <div class="top"><label for="f-feeds">Consecutive feeds</label></div>
+          <div class="num-unit"><input type="text" id="f-feeds" value="3" inputmode="numeric"><span class="u">&times;</span></div>
+        </div>
+      </div>
+
+      <fieldset>
+        <div class="field" style="margin-bottom:8px"><label>Show</label></div>
+        <div class="seg" role="group" aria-label="What the bars show">
+          <button type="button" class="seg-btn is-on" id="f-mode-flour" aria-pressed="true">Flour blend</button>
+          <button type="button" class="seg-btn" id="f-mode-mass" aria-pressed="false">By weight</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="feed-chart" id="feed-out">
+      <p class="feed-summary" id="feed-summary" aria-live="polite"></p>
+      <div class="legend" id="feed-legend"></div>
+      <div id="feed-rows"></div>
+    </div>
+  </section>
+
+  <footer>
+    Baker's percentages are relative to total flour. Starter is treated as flour + water at its stated hydration, so a 100% starter is half flour, half water. Weigh your ingredients; volumes lie.
+  </footer>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var clampNum = function (v, min, max) {
+    v = parseFloat(String(v).replace(/,/g, '.'));
+    if (isNaN(v)) return min;
+    if (min != null && v < min) v = min;
+    if (max != null && v > max) v = max;
+    return v;
+  };
+  var g = function (x) { return Math.round(x); };
+  var g1 = function (x) { return (Math.round(x * 10) / 10).toFixed(1); };
+  var p1 = function (x) { return (Math.round(x * 10) / 10).toFixed(1); };
+
+  var el = function (tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  };
+
+  /* keep a slider and its number box in sync, then recompute.
+     the box holds the exact value used in the math; the slider just snaps to 5s
+     within its own range, so a typed value outside that range stays in the box. */
+  function link(numId, rangeId, cb) {
+    var n = $(numId), r = $(rangeId);
+    n.addEventListener('input', function () { if (r) r.value = String(n.value).replace(/,/g, '.'); cb(); });
+    if (r) r.addEventListener('input', function () { n.value = r.value; cb(); });
+  }
+
+  /* ---------------- DOUGH ---------------- */
+  function dough() {
+    var TF = clampNum($('d-tf').value, 0, 100000);
+    var H  = clampNum($('d-h').value, 0, 500);
+    var S  = clampNum($('d-s').value, 0, 1000);
+    var SH = clampNum($('d-sh').value, 0, 1000);
+    var salt = clampNum($('d-salt-in').value, 0, 100);
+
+    var starterW = TF * S / 100;
+    var starterFlour = starterW / (1 + SH / 100);
+    var starterWater = starterW - starterFlour;
+    var totalWater = TF * H / 100;
+    var addFlour = TF - starterFlour;
+    var addWater = totalWater - starterWater;
+    var saltW = TF * salt / 100;
+    var total = TF + totalWater + saltW;
+
+    $('d-flour').textContent = g(Math.max(addFlour, 0));
+    $('d-water').textContent = g(Math.max(addWater, 0));
+    $('d-starter').textContent = g(starterW);
+    $('d-salt').textContent = g1(saltW);
+    $('d-total').textContent = g(total);
+
+    $('d-starter-note').textContent = 'contains ' + g(starterFlour) + 'g flour + ' + g(starterWater) + 'g water';
+    $('d-flour-note').innerHTML = (addFlour < -0.5)
+      ? '<span class="warn">starter alone exceeds total flour</span>' : '';
+    $('d-water-note').innerHTML = (addWater < -0.5)
+      ? '<span class="warn">starter water exceeds target, lower hydration or starter</span>' : '';
+
+    levain();
+  }
+
+  ['d-tf','d-sh','d-salt-in'].forEach(function (id) { $(id).addEventListener('input', dough); });
+  link('d-h', 'd-h-r', dough);
+  link('d-s', 'd-s-r', dough);
+
+  /* ---------------- LEVAIN (reads the dough tool) ---------------- */
+  var levMode = 'ratio';
+  function setLevMode(m) {
+    levMode = m;
+    $('lev-tab-seed').classList.toggle('is-on', m === 'seed');
+    $('lev-tab-ratio').classList.toggle('is-on', m === 'ratio');
+    $('lev-tab-seed').setAttribute('aria-selected', m === 'seed');
+    $('lev-tab-ratio').setAttribute('aria-selected', m === 'ratio');
+    $('lev-group-seed').style.display = m === 'seed' ? '' : 'none';
+    $('lev-group-ratio').style.display = m === 'ratio' ? '' : 'none';
+    levain();
+  }
+
+  function levain() {
+    var TF = clampNum($('d-tf').value, 0, 1000000);
+    var S  = clampNum($('d-s').value, 0, 1000);
+    var SH = clampNum($('d-sh').value, 0, 1000);
+    var extra = clampNum($('lev-extra').value, 0, 1000000);
+    var seedH = clampNum($('lev-seed-h').value, 0, 1000);
+
+    var need = TF * S / 100;   // starter the dough calls for
+    var T = need + extra;      // total levain to build
+    var H = SH;                // hydration the dough assumes
+
+    var seed, addFlour, addWater;
+
+    if (levMode === 'ratio') {
+      var rs = clampNum($('lev-rs').value, 0, 1000);
+      var rf = clampNum($('lev-rf').value, 0, 1000);
+      var rw = clampNum($('lev-rw').value, 0, 1000);
+      var parts = rs + rf + rw;
+      var unit = parts > 0 ? T / parts : 0;
+      seed = rs * unit;
+      addFlour = rf * unit;
+      addWater = rw * unit;
+    } else {
+      seed = clampNum($('lev-seed-in').value, 0, 1000000);
+      var totalFlour = T / (1 + H / 100);
+      var seedFlourS = seed / (1 + seedH / 100);
+      addFlour = totalFlour - seedFlourS;
+      addWater = (T - totalFlour) - (seed - seedFlourS);
+    }
+
+    var seedFlour = seed / (1 + seedH / 100);
+    var seedWater = seed - seedFlour;
+    var builtFlour = seedFlour + Math.max(addFlour, 0);
+    var builtWater = seedWater + Math.max(addWater, 0);
+    var builtHyd = builtFlour > 0 ? builtWater / builtFlour * 100 : 0;
+
+    if (T <= 0) {
+      $('lev-target').innerHTML = 'Your dough uses no starter, so there is nothing to build.';
+    } else {
+      var mismatch = Math.abs(builtHyd - H) > 0.5;
+      $('lev-target').innerHTML = 'Build <b>' + g(T) + ' g</b> at <b>' + p1(builtHyd) + '%</b>'
+        + (extra > 0 ? ', spare included.' : '.')
+        + (mismatch ? ' <span class="warn">Dough assumes ' + p1(H) + '%.</span>' : '');
+    }
+
+    $('lev-seed').textContent = g(seed);
+    $('lev-flour').textContent = g(Math.max(addFlour, 0));
+    $('lev-water').textContent = g(Math.max(addWater, 0));
+    $('lev-total').textContent = g(Math.max(T, 0));
+
+    $('lev-seed-note').textContent = seed > 0 ? 'contains ' + g(seedFlour) + 'g flour + ' + g(seedWater) + 'g water' : '';
+    $('lev-flour-note').innerHTML = (addFlour < -0.5)
+      ? '<span class="warn">seed already has more flour than this build, use less</span>' : '';
+    $('lev-water-note').innerHTML = (addWater < -0.5)
+      ? '<span class="warn">seed is wetter than this build, use less</span>' : '';
+  }
+
+  $('lev-tab-seed').addEventListener('click', function () { setLevMode('seed'); });
+  $('lev-tab-ratio').addEventListener('click', function () { setLevMode('ratio'); });
+  ['lev-seed-in','lev-seed-h','lev-extra','lev-rs'].forEach(function (id) { $(id).addEventListener('input', levain); });
+
+  /* ---------------- FEED ----------------
+     Two named grains: A is whatever the starter is now (it dilutes as you feed),
+     B is everything else you feed in. The math tracks A's share of the flour;
+     B is the remainder. Water is carried alongside so hydration follows the feeds. */
+  var feedMode = 'flour'; // 'flour' = blend of flours only, 'mass' = shares of total weight
+
+  function setFeedMode(m) {
+    feedMode = m;
+    $('f-mode-flour').classList.toggle('is-on', m === 'flour');
+    $('f-mode-mass').classList.toggle('is-on', m === 'mass');
+    $('f-mode-flour').setAttribute('aria-pressed', m === 'flour');
+    $('f-mode-mass').setAttribute('aria-pressed', m === 'mass');
+    feed();
+  }
+
+  function grainName(id, fallback) {
+    var v = String($(id).value || '').trim();
+    return v || fallback;
+  }
+
+  function feed() {
+    var nameA = grainName('f-grain-a', 'Grain A');
+    var nameB = grainName('f-grain-b', 'Grain B');
+
+    // reflect grain A's name into the inline control labels
+    Array.prototype.forEach.call(document.querySelectorAll('.gname-a'), function (n) { n.textContent = nameA; });
+
+    var a0    = clampNum($('f-rye0').value, 0, 100) / 100;
+    var sh0   = clampNum($('f-sh').value, 0, 1000);
+    var rs    = clampNum($('f-rs').value, 0, 1000);
+    var rf    = clampNum($('f-rf').value, 0, 1000);
+    var rw    = clampNum($('f-rw').value, 0, 1000);
+    var fedA  = clampNum($('f-fedrye').value, 0, 100) / 100;
+    var feeds = Math.round(clampNum($('f-feeds').value, 1, 24));
+
+    // walk the feeds, collecting the flour blend + hydration at each step
+    var steps = [{ label: 'Start', a: a0, hyd: sh0 }];
+    var aFrac = a0, hyd = sh0;
+    for (var i = 1; i <= feeds; i++) {
+      var keptFlour = rs / (1 + hyd / 100);
+      var oldA = keptFlour * aFrac;
+      var newFlour = keptFlour + rf;
+      var newA = oldA + rf * fedA;
+      var newWater = (rs - keptFlour) + rw;
+      aFrac = newFlour > 0 ? newA / newFlour : 0;
+      hyd   = newFlour > 0 ? newWater / newFlour * 100 : 0;
+      steps.push({ label: '#' + i, a: aFrac, hyd: hyd });
+    }
+
+    renderFeed(steps, nameA, nameB);
+  }
+
+  function renderFeed(steps, nameA, nameB) {
+    var mass = feedMode === 'mass';
+
+    var legend = $('feed-legend');
+    legend.textContent = '';
+    legend.appendChild(legendItem('sw-rye', nameA));
+    legend.appendChild(legendItem('sw-wheat', nameB));
+    if (mass) legend.appendChild(legendItem('sw-water', 'Water'));
+
+    var rows = $('feed-rows');
+    rows.textContent = '';
+    steps.forEach(function (s) { rows.appendChild(feedRow(s, nameA, nameB, mass)); });
+
+    var last = steps[steps.length - 1];
+    var n = steps.length - 1;
+    var when = n === 0 ? 'Now' : ('After ' + n + (n === 1 ? ' feed' : ' feeds'));
+    $('feed-summary').innerHTML = when + ': <b>' + p1(last.a * 100) + '% ' + escapeHtml(nameA) + '</b>, <b>'
+      + p1((1 - last.a) * 100) + '% ' + escapeHtml(nameB) + '</b>, hydration <b>' + Math.round(last.hyd) + '%</b>.';
+  }
+
+  function legendItem(swClass, name) {
+    var leg = el('span', 'leg');
+    leg.appendChild(el('span', 'swatch ' + swClass));
+    leg.appendChild(el('span', 'leg-name', name));
+    return leg;
+  }
+
+  function feedRow(s, nameA, nameB, mass) {
+    var row = el('div', 'feed-row');
+
+    var top = el('div', 'feed-top');
+    top.appendChild(el('span', 'feed-label', s.label));
+
+    var flourMass = 1 / (1 + s.hyd / 100);
+    var wa, wb, ww, nums;
+    if (mass) {
+      wa = s.a * flourMass; wb = (1 - s.a) * flourMass; ww = 1 - flourMass;
+      nums = nameA + ' ' + Math.round(wa * 100) + '% · ' + nameB + ' ' + Math.round(wb * 100) + '% · Water ' + Math.round(ww * 100) + '%';
+    } else {
+      wa = s.a; wb = 1 - s.a; ww = 0;
+      nums = nameA + ' ' + p1(s.a * 100) + '% · ' + nameB + ' ' + p1((1 - s.a) * 100) + '%';
+    }
+    top.appendChild(el('span', 'feed-nums', nums));
+    row.appendChild(top);
+
+    var bar = el('div', 'bar');
+    bar.setAttribute('aria-hidden', 'true');
+    bar.appendChild(seg('s-rye', wa * 100));
+    bar.appendChild(seg('s-wheat', wb * 100));
+    if (mass) bar.appendChild(seg('s-water', ww * 100));
+    row.appendChild(bar);
+
+    if (!mass) row.appendChild(el('div', 'feed-hyd', 'hydration ' + Math.round(s.hyd) + '%'));
+    return row;
+  }
+
+  function seg(cls, widthPct) {
+    var s = el('span', cls);
+    s.style.width = Math.max(widthPct, 0) + '%';
+    return s;
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  ['f-grain-a','f-grain-b','f-rye0','f-sh','f-rs','f-fedrye','f-feeds'].forEach(function (id) {
+    $(id).addEventListener('input', feed);
+  });
+  $('f-mode-flour').addEventListener('click', function () { setFeedMode('flour'); });
+  $('f-mode-mass').addEventListener('click', function () { setFeedMode('mass'); });
+
+  /* flour and water usually move together (they hold hydration steady), so link them
+     by default; the lock button breaks the link when you want a different ratio.
+     Same control in both ratios: Levain (seed:flour:water) and Feeding (starter:flour:water). */
+  function wireLock(lockId, flourId, waterId, recompute) {
+    var locked = true;
+    var btn = $(lockId);
+    function paint() {
+      btn.classList.toggle('is-locked', locked);
+      btn.setAttribute('aria-pressed', locked);
+      btn.title = locked ? 'Flour and water locked together' : 'Flour and water unlocked';
+    }
+    function edit(fromId, toId) { if (locked) $(toId).value = $(fromId).value; recompute(); }
+    $(flourId).addEventListener('input', function () { edit(flourId, waterId); });
+    $(waterId).addEventListener('input', function () { edit(waterId, flourId); });
+    btn.addEventListener('click', function () {
+      locked = !locked;
+      if (locked) $(waterId).value = $(flourId).value; // re-locking snaps water back to flour
+      paint();
+      recompute();
+    });
+    paint();
+  }
+  wireLock('lev-lock', 'lev-rf', 'lev-rw', levain);
+  wireLock('f-lock', 'f-rf', 'f-rw', feed);
+
+  dough();
+  feed();
+  setLevMode('ratio');
+})();
+</script>
+</body>
+</html>
